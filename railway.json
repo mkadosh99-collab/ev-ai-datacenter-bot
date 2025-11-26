@@ -1,0 +1,17 @@
+{
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "startCommand": "python main.py",
+    "restartPolicy": {
+      "type": "on-failure"
+    }
+  },
+  "schedule": [
+    {
+      "command": "python main.py",
+      "cron": "0 14 * * *"
+    }
+  ]
+}
