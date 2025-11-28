@@ -80,44 +80,46 @@ def generate_thread(topic):
         max_tokens=2500,
     )
     return resp.choices[0].message.content.strip()
-
 def generate_image(topic):
-    resp = client.images.generate(
-        model="grok",  # xAI's image gen
-        prompt=f"Ultra-realistic futuristic scene: {topic}, cinematic lighting, highly detailed, 16:9 aspect ratio",
-        n=1,
-        size="1024x1024"
-    )
-    return resp.data[0].url
+    prompt = f"Ultra-realistic cinematic scene: {topic}, datacenter racks, EVs, AI chips, liquid cooling, neon lights, highly detailed, dramatic lighting"
+    for i in range(3):
+        try:
+            resp = client.images.generate(
+                model="grok",
+                prompt=prompt,
+                n=1
+            )
+            return resp.data[0].url
+        except Exception as e:
+            if i == 2:
+                print("Image failed after 3 tries — posting text-only thread")
+                return None
+            time.sleep(3)
+    return None
 
 def post_thread():
     topic = pick_topic()
     print(f"Generating thread for: {topic}")
     thread = generate_thread(topic)
     image_url = generate_image(topic)
-    
-    # Download image temporarily
-    img_data = requests.get(image_url).content
-    with open('temp_image.jpg', 'wb') as f:
-        f.write(img_data)
-    
-    # Parse tweets (split by lines with numbers)
-    tweets = [t.strip() for t in thread.split('\n') if t.strip() and any(char.isdigit() for char in t if char != '/') and '/' in t]
-    
-    # Auth for v1 API (needed for media upload)
-    auth = tweepy.OAuth1UserHandler(TW_API_KEY, TW_API_SECRET, TW_ACCESS_TOKEN, TW_ACCESS_SECRET)
-    api_v1 = tweepy.API(auth)
-    
-    # Upload image
-    media = api_v1.media_upload('temp_image.jpg')
-    media_id = media.media_id_string
-    
-    previous_id = None
-    for i, tweet in enumerate(tweets[:10]):  # Limit to 10 tweets
-        if i == 0:
-            # First tweet with image
-            response = twitter.create_tweet(text=tweet, media_ids=[media_id])
-        else:
+    media_id = None
+    if image_url:
+        try:
+            img_data = requests.get(image_url, timeout=20).content
+            with open('temp.jpg', 'wb') as f:
+                f.write(img_data)
+            media = api_v1.media_upload('temp.jpg')
+            media_id = media.media_id_string
+            os.remove('temp.jpg')
+        except Exception as e:
+            print(f"Image upload failed: {e}")
+            media_id = None
+
+    # Post first tweet (with or without image)
+    response = twitter.create_tweet(
+        text=tweets[0],
+        media_ids=[media_id] if media_id else None
+    )
             # Replies
             response = twitter.create_tweet(text=tweet, in_reply_to_tweet_id=previous_id)
         previous_id = response.data['id']
