@@ -91,7 +91,7 @@ def generate_thread_content(topic):
     
     try:
         resp = client.chat.completions.create(
-            model="grok-beta", 
+            model="grok-3", 
             messages=[{"role": "user", "content": prompt}],
             temperature=0.9,
             max_tokens=2500,
