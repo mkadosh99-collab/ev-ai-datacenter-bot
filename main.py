@@ -101,34 +101,41 @@ def post_thread():
     topic = pick_topic()
     print(f"Generating thread for: {topic}")
     thread = generate_thread(topic)
+        # Generate image (safe)
     image_url = generate_image(topic)
     media_id = None
     if image_url:
         try:
-            img_data = requests.get(image_url, timeout=20).content
-            with open('temp.jpg', 'wb') as f:
+            img_data = requests.get(image_url, timeout=30).content
+            with open("temp.jpg", "wb") as f:
                 f.write(img_data)
-            media = api_v1.media_upload('temp.jpg')
+            media = api_v1.media_upload("temp.jpg")
             media_id = media.media_id_string
-            os.remove('temp.jpg')
+            os.remove("temp.jpg")
+            print("Image uploaded successfully")
         except Exception as e:
             print(f"Image upload failed: {e}")
             media_id = None
 
-    # Post first tweet (with or without image)
-    response = twitter.create_tweet(
-        text=tweets[0],
-        media_ids=[media_id] if media_id else None
-    )
-            # Replies
-            response = twitter.create_tweet(text=tweet, in_reply_to_tweet_id=previous_id)
-        previous_id = response.data['id']
-        print(f"Posted tweet {i+1}: {tweet[:50]}...")
-        time.sleep(3)  # Rate limit buffer
-    
-    # Cleanup
-    os.remove('temp_image.jpg')
-    print("Thread posted successfully!")
+    # Post the thread
+    previous_id = None
+    for i, tweet in enumerate(tweets):
+        if i == 0:
+            # First tweet — with image if we have one
+            resp = twitter.create_tweet(
+                text=tweet,
+                media_ids=[media_id] if media_id else None
+            )
+        else:
+            resp = twitter.create_tweet(
+                text=tweet,
+                in_reply_to_tweet_id=previous_id
+            )
+        previous_id = resp.data["id"]
+        print(f"Posted {i+1}/{len(tweets)}")
+        time.sleep(3)
+
+    print("FULL THREAD POSTED SUCCESSFULLY!")
 
 if __name__ == "__main__":
     post_thread()
